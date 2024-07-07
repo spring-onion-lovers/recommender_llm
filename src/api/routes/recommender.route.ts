@@ -1,6 +1,6 @@
 import express, { NextFunction, Request, Response } from 'express';
 import expressAsyncHandler from 'express-async-handler';
-import { getRecommendation, getRecommendationViaInteraction, getSimilarProductRecommendation, handleProductUpsert, handleQuery, handleUserInteractionUpsert, handleUserUpsert, initBulkProductInsert } from '../controllers/recommender.controller';
+import {  getRecommendationViaInteraction, getSimilarProductRecommendation, handleProductUpsert, handleQuery, handleUserInteractionUpsert, handleUserUpsert, initBulkProductInsert } from '../controllers/recommender.controller';
 
 const router = express.Router();
 

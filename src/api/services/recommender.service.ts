@@ -1,6 +1,12 @@
 import { INDEX_NAMES, PineconeNamespace } from '../../utils/constant';
 import { createEmbeddings } from '../../utils/openAi';
-import { fetchEmbeddings, getIndex, getIndexAndNamespace, queryIndex, storeEmbeddings } from '../../utils/pineconeClient';
+import {
+  fetchEmbeddings,
+  getIndex,
+  getIndexAndNamespace,
+  queryIndex,
+  storeEmbeddings,
+} from '../../utils/pineconeClient';
 
 export const handleProductUpsertService = async (
   productId: string,
@@ -42,29 +48,29 @@ export const handleUserInteractionUpsertService = async (
 ) => {
   const index = await getIndexAndNamespace(INDEX_NAMES.DEFAULT, PineconeNamespace.USER);
   if (!index) return null;
-  console.log('userId : ', userId);
 
-  console.log('interaction : ', interaction);
-  console.log('productId : ', productId);
   const userResponse = await index.namespace(PineconeNamespace.USER).fetch([`${userId}`]);
 
-  
-  if (!userResponse) return null;
-  const userMetadata = userResponse.records[userId as string].metadata;
+  if (userResponse && userResponse.records && Object.keys(userResponse.records).length > 0) {
+    const userMetadata = userResponse.records[userId as string].metadata;
 
-  const interactions = userMetadata?.interactions as [] || [];
-  const updatedInteractions = [...interactions, `${userId} ${interaction} ${productId}`];
+    const interactions = (userMetadata?.interactions as []) || [];
+    const updatedInteractions = [...interactions, `${userId} ${interaction} ${productId}`];
 
-  const updatedEmbeddings = await createEmbeddings(updatedInteractions.join(' '));
+    const updatedEmbeddings = await createEmbeddings(updatedInteractions.join(' '));
 
-
-  const response = await index
-    .update({
-        id: `${userId}`,
-        values: updatedEmbeddings,
-        metadata: { interactions: updatedInteractions, userId },
+    const response = await index.update({
+      id: `${userId}`,
+      values: updatedEmbeddings,
+      metadata: { interactions: updatedInteractions, userId },
     });
-
+    return true;
+  } else {
+    const interactions = []
+    interactions.push({ userId, interaction, productId });
+    const insertNewUserInteractions = await handleUserUpsertService(userId, interactions);
+    const fetchInsertedUser = await index.namespace(PineconeNamespace.USER).fetch([`${userId}`]);
+  }
   return true;
 };
 
@@ -82,6 +88,29 @@ export const getClosestUsers = async (embedding: number[], topK: number) => {
   const response = await queryIndex(INDEX_NAMES.DEFAULT, embedding, topK, PineconeNamespace.USER);
   return response;
 };
+
+export const checkIfUserExists = async (userId: string) => {
+  const index = await getIndexAndNamespace(INDEX_NAMES.DEFAULT, PineconeNamespace.USER);
+  if (!index) return false;
+  const userResponse = await index.fetch([`${userId}`]);
+  if (userResponse && userResponse.records && Object.keys(userResponse.records).length > 0) {
+    return true;
+  }
+
+  return false;
+};
+
+export const checkIfProductExists = async (productId: string) => {
+  const index = await getIndex(INDEX_NAMES.DEFAULT);
+  if (!index) return false;
+  const productResponse = await index
+    .namespace(PineconeNamespace.PRODUCT)
+    .fetch([`${productId}`]);
+  if (productResponse && productResponse.records && Object.keys(productResponse.records).length > 0) {
+    return true;
+  }
+  return false;
+}
 
 export const createUserEmbeddings = async (
   userId: string,
