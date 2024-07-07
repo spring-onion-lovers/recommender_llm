@@ -6,6 +6,7 @@ import {
   createProductEmbeddings,
   getClosestProducts,
   handleProductUpsertService,
+  handleUserInteractionUpsertService,
   handleUserUpsertService,
 } from '../services/recommender.service';
 import { identifyRecommendations, parseUserActions } from '../helper/helper';
@@ -31,7 +32,20 @@ export const handleProductUpsert = async (req: Request, res: Response) => {
     res.status(400).json(error);
   }
 };
+export const handleUserInteractionUpsert = async(req:Request, res:Response) =>{
+  try {
+    const { userId, interaction,productId } = req.body;
 
+    if (!userId || !interaction || !productId)
+      return res.status(400).json({ message: 'Interactions property is required' });
+    const response = await handleUserInteractionUpsertService(userId as string, interaction, productId as string);
+
+    return res.status(200).json({ message: 'success', response: response });
+  } catch (error) {
+    console.log('handleUserInteractionUpsert :: error :: ', error);
+    res.status(400).json(error);
+  }
+}
 export const handleUserUpsert = async (req: Request, res: Response) => {
   try {
     const { userId, userInteractions } = req.body;

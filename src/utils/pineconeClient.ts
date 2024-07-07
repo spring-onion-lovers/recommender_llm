@@ -36,6 +36,18 @@ export const getIndex = async (indexName: string) => {
   }
 };
 
+export const getIndexAndNamespace = async (indexName: string, namespace: PineconeNamespace) => {
+  try {
+    const indexExist = await checkIfIndexExists(indexName);
+    if (!indexExist) {
+      await createIndex(indexName);
+    }
+    return pineconeClient.index(indexName).namespace(namespace);
+  } catch (err) {
+    console.error('Error creating index:', err);
+  }
+};
+
 export const createIndex = async (
   indexName: string,
   dimension = 1536,
