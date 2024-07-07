@@ -19,6 +19,17 @@ export const createEmbeddings = async(text: string) =>{
     model: 'text-embedding-ada-002',
     input: text,
   });
-  console.log('[createEmbedding][embedding] :', embedding);
   return embedding.data[0].embedding;
+}
+
+export const processUserQuery = async (query:string )=>{
+    const openAi = getOpenAI();
+    const response = await openAi.completions.create({
+        model: 'gpt-3.5-turbo-instruct',
+        prompt: query,
+        max_tokens: 128,
+        temperature: 0.5
+    })
+    console.log('[processUserQuery] response > ', response);
+    return response.choices[0].text.trim();
 }

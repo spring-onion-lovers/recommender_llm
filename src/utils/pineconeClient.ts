@@ -7,82 +7,75 @@ const apiKey = config.PINECONE_API_KEY;
 
 let pineconeClient: Pinecone;
 
-const getPineconeClient = () => {
+export const initPinecone = async () => {
   if (!pineconeClient) {
     pineconeClient = new Pinecone({
       apiKey: apiKey,
     });
   }
-
-  return pineconeClient;
 };
-const checkIfIndexExists = async (indexName: string) => {
-    const client = getPineconeClient();
 
-    try {
-        const response = await client.listIndexes();
-        return response.indexes?.some(index => index.name === indexName);
+const checkIfIndexExists = async (indexName: string) => {
+  try {
+    const response = await pineconeClient.listIndexes();
+    return response.indexes?.some((index) => index.name === indexName);
+  } catch (error) {
+    console.error('Error listing indexes: ', error);
+    return false;
+  }
+};
+export const getIndex = async (indexName: string) => {
+  try {
+    const indexExist = await checkIfIndexExists(indexName);
+    if (!indexExist) {
+      await createIndex(indexName);
     }
-    catch(error) {
-        console.error('Error listing indexes: ', error);
-        return false;
-    }
-}
-export const getIndex = async(indexName:string) => {
-    try {
-      const client = getPineconeClient();
-      const indexExist = await checkIfIndexExists(indexName)
-      if (indexExist) {
-        return client.index(indexName);
-      }
-    } catch (err) {
-      console.error('Error creating index:', err);
-    }
-}
+    return pineconeClient.index(indexName);
+  } catch (err) {
+    console.error('Error creating index:', err);
+  }
+};
 
 export const createIndex = async (
-  indexName:string,
+  indexName: string,
   dimension = 1536,
   metric: CreateIndexRequestMetricEnum = 'cosine',
 ) => {
   try {
-    const client = getPineconeClient();
-    const indexExist = await checkIfIndexExists(indexName);
-    if (!indexExist) {
-      await client.createIndex({
-        name: indexName,
-        dimension,
-        metric,
-        spec: {
-          serverless: {
-            cloud: 'aws',
-            region: 'us-east-1',
-          },
+    await pineconeClient.createIndex({
+      name: indexName,
+      dimension,
+      metric,
+      spec: {
+        serverless: {
+          cloud: 'aws',
+          region: 'us-east-1',
         },
-      });
-    }
+      },
+    });
   } catch (err) {
     console.error('Error creating index:', err);
   }
 };
 
 export const storeEmbeddings = async (
-  indexName:string,
+  indexName: string,
   id: string,
   embedding: number[],
   namespace: PineconeNamespace,
-  metadata?: {}
+  metadata?: {},
 ) => {
   try {
-    const client = getPineconeClient();
-    const index = client.index(indexName);
-    await index.namespace(namespace).upsert([
+    const index = await getIndex(indexName);
+    if (!index) return false;
+    const response = await index.namespace(namespace).upsert([
       {
-        id: id,
+        id: id.toString(),
         values: embedding,
-        metadata
+        metadata: metadata || {},
       },
     ]);
+    console.log('[storeEmbeddings] response > ', response);
     return true;
   } catch (err) {
     console.error('Error storing embeddings', err);
@@ -90,24 +83,47 @@ export const storeEmbeddings = async (
   }
 };
 
-
 export const queryIndex = async (
-    indexName:string,
-    vector: number[],
-    topK: number,
-    namespace:PineconeNamespace
+  indexName: string,
+  vector: number[],
+  topK: number,
+  namespace: PineconeNamespace,
 ) => {
-    try {
-        const client = getPineconeClient();
-        const index = client.index(indexName);
-        const response = await index.namespace(namespace).query({
-            vector,
-            topK,
-        });
-        
-        return response.matches;
-    }catch(err) {
-        console.error('Error query index:', err);
-        return [];
+  try {
+    const indexExist = await checkIfIndexExists(indexName);
+    if (!indexExist) {
+      await createIndex(indexName);
     }
-}
+    const index = pineconeClient.index(indexName);
+    const response = await index.namespace(namespace).query({
+      vector,
+      topK,
+      includeMetadata: true,
+    });
+
+    return response.matches;
+  } catch (err) {
+    console.error('Error query index:', err);
+    return [];
+  }
+};
+
+export const fetchEmbeddings = async (
+  indexName: string,
+  namespace: PineconeNamespace,
+  id: string,
+) => {
+  try {
+    const indexExist = await checkIfIndexExists(indexName);
+    if (!indexExist) {
+      await createIndex(indexName);
+    }
+    const index = pineconeClient.index(indexName);
+    const response = await index.namespace(namespace).fetch([id as string]);
+
+    return response.records[id as string].values;
+  } catch (err) {
+    console.error('Error fetching :', err);
+    return [];
+  }
+};

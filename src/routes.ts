@@ -5,7 +5,7 @@ import recommendRouter from './api/routes/recommender.route'
 const router = express.Router();
 
 
-router.get('/health', (res:Response,req:Request)=> {
+router.get('/health', (req:Request, res:Response)=> {
      return res.status(200).json({
        message: 'Health OK',
      });

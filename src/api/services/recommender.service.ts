@@ -1,11 +1,12 @@
 import { INDEX_NAMES, PineconeNamespace } from "../../utils/constant";
 import { createEmbeddings } from "../../utils/openAi";
-import { queryIndex, storeEmbeddings } from "../../utils/pineconeClient";
+import { getIndex, queryIndex, storeEmbeddings } from "../../utils/pineconeClient";
 
 
 
 export const handleProductUpsertService = async (productId: string,category:string, name: string, description: string) => {
     const embedding = await createProductEmbeddings(productId,category, name, description);
+    console.log('[handleProductUpsertService][embedding] :', embedding);
     const response = await storeEmbeddings(
       INDEX_NAMES.DEFAULT,
       productId,
@@ -19,17 +20,27 @@ export const handleProductUpsertService = async (productId: string,category:stri
 
 export const handleUserUpsertService = async (
   userId: string,
-  userInteractions: {userId: string; interactions: string,productId:string}[],
+  userInteractions: {userId: string; interaction: string,productId:string}[],
 ) => {
-    const embedding = await createUserEmbeddings(userId, userInteractions);
+    const [embedding,interactions] = await createUserEmbeddings(userId, userInteractions);
     const response = await storeEmbeddings(
       INDEX_NAMES.DEFAULT,
       userId,
-      embedding,
+      embedding as number[],
       PineconeNamespace.USER,
+      { userId, interactions },
     );
     return response;
 };
+
+export const getProductEmbeddingsByID = async (productId: string) => {
+    const index = await getIndex(INDEX_NAMES.DEFAULT);
+    if(!index)  return null;
+    const productResponse = await index.namespace(PineconeNamespace.PRODUCT).fetch([productId as string]);
+
+    return productResponse.records[productId as string].values;
+
+}
 
 export const getClosestProducts = async (embedding: number[], topK: number) => {
     const response = await queryIndex(
@@ -41,15 +52,25 @@ export const getClosestProducts = async (embedding: number[], topK: number) => {
     return response;
 }
 
+export const getClosestUsers = async (embedding: number[], topK: number) => {
+    const response = await queryIndex(
+      INDEX_NAMES.DEFAULT,
+      embedding,
+      topK,
+      PineconeNamespace.USER
+    );
+    return response;
+}
+
 export const createUserEmbeddings = async (
   userId: string,
-  userInteractions: { userId: string; interactions: string; productId: string }[],
+  userInteractions: { userId: string; interaction: string; productId: string }[],
 ) => { 
     const interactions = userInteractions.map(
-       (row) => `${userId} ${row.interactions} ${row.productId}`,
+       (row) => `${userId} ${row.interaction} ${row.productId}`,
      );
     const embedding = await createEmbeddings(interactions.join(' '));
-    return embedding;
+    return [embedding,interactions];
 };
 
 export const createProductEmbeddings = async (
