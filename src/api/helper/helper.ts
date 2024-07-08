@@ -2,6 +2,7 @@ interface UserActions {
   purchases: Set<number>;
   shares: Set<number>;
   views: Set<number>;
+  carts: Set<number>;
 }
 
 export const parseUserActions = (input: any[]): Map<number, UserActions> => {
@@ -12,7 +13,7 @@ export const parseUserActions = (input: any[]): Map<number, UserActions> => {
     const parsedUserId = parseInt(userId);
     const parsedProductId = parseInt(productId);
     if (!userActions.has(parsedUserId)) {
-      userActions.set(parsedUserId, { purchases: new Set(), views: new Set(), shares: new Set() });
+      userActions.set(parsedUserId, { purchases: new Set(), views: new Set(), shares: new Set(), carts: new Set() });
     }
 
     const actions = userActions.get(parsedUserId)!;
@@ -22,6 +23,8 @@ export const parseUserActions = (input: any[]): Map<number, UserActions> => {
       actions.views.add(parsedProductId);
     } else if (action === 'share') {
       actions.shares.add(parsedProductId);
+    } else if(action === 'add_to_cart'){
+      actions.carts.add(parsedProductId);
     }
   });
 
@@ -32,15 +35,16 @@ export const parseUserActions = (input: any[]): Map<number, UserActions> => {
 export const identifyRecommendations = (userId:number, userActions: Map<number, UserActions>) => {
   const userViews = userActions.get(userId)!.views;
 
-  const userPurchase = userActions.get(userId)!.purchases;
+  const userPurchases = userActions.get(userId)!.purchases;
 //   const userShares = userActions.get(userId)!.shares;
+  const userCarts = userActions.get(userId)!.carts;
 
   const recommendations = new Set<number>();
 
   userActions.forEach((actions,otherUserId) =>{
     if(otherUserId !== userId){
         actions.purchases.forEach(productId => {
-            if(!userViews.has(productId) && !userPurchase.has(productId)) {
+            if(!userViews.has(productId) && !userPurchases.has(productId) && !userCarts.has(productId)) {
                 recommendations.add(productId);
             }
         });

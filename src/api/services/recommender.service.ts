@@ -30,13 +30,13 @@ export const handleUserUpsertService = async (
   userId: string,
   userInteractions: { userId: string; interaction: string; productId: string }[],
 ) => {
-  const [embedding, interactions] = await createUserEmbeddings(userId, userInteractions);
+  const [embedding,metadataInteraction] = await createUserEmbeddings(userId, userInteractions);
   const response = await storeEmbeddings(
     INDEX_NAMES.DEFAULT,
     userId,
     embedding as number[],
     PineconeNamespace.USER,
-    { userId, interactions },
+    { userId, metadataInteraction },
   );
   return response;
 };
@@ -55,21 +55,19 @@ export const handleUserInteractionUpsertService = async (
     const userMetadata = userResponse.records[userId as string].metadata;
 
     const interactions = (userMetadata?.interactions as []) || [];
-    const updatedInteractions = [...interactions, `${userId} ${interaction} ${productId}`];
 
-    const updatedEmbeddings = await createEmbeddings(updatedInteractions.join(' '));
+    const [embedding, metadataInteraction] = await createUserEmbeddings(userId, interactions);
 
     const response = await index.update({
       id: `${userId}`,
-      values: updatedEmbeddings,
-      metadata: { interactions: updatedInteractions, userId },
+      values: embedding as number[],
+      metadata: { interactions: metadataInteraction as string[], userId },
     });
     return true;
   } else {
     const interactions = []
     interactions.push({ userId, interaction, productId });
     const insertNewUserInteractions = await handleUserUpsertService(userId, interactions);
-    const fetchInsertedUser = await index.namespace(PineconeNamespace.USER).fetch([`${userId}`]);
   }
   return true;
 };
@@ -117,10 +115,13 @@ export const createUserEmbeddings = async (
   userInteractions: { userId: string; interaction: string; productId: string }[],
 ) => {
   const interactions = userInteractions.map(
+    (row) => `User ${userId} ${row.interaction} Product ${row.productId}`,
+  );
+  const metadataInteraction = userInteractions.map(
     (row) => `${userId} ${row.interaction} ${row.productId}`,
   );
   const embedding = await createEmbeddings(interactions.join(' '));
-  return [embedding, interactions];
+  return [embedding, metadataInteraction];
 };
 
 export const createProductEmbeddings = async (
