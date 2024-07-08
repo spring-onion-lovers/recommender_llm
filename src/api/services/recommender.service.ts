@@ -91,6 +91,7 @@ export const checkIfUserExists = async (userId: string) => {
   const index = await getIndexAndNamespace(INDEX_NAMES.DEFAULT, PineconeNamespace.USER);
   if (!index) return false;
   const userResponse = await index.fetch([`${userId}`]);
+
   if (userResponse && userResponse.records && Object.keys(userResponse.records).length > 0) {
     return true;
   }

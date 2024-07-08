@@ -99,8 +99,11 @@ export const getRecommendation = async (req: Request, res: Response) => {
     const index = await getIndex(INDEX_NAMES.DEFAULT);
     if (!index) return res.status(400).json({ message: 'index not found' });
     const userResponse = await index.namespace(PineconeNamespace.USER).fetch([userId as string]);
-    if(!checkIfUserExists(userId as string)) 
+    const userExist = await checkIfUserExists(userId as string);
+    if (!userExist) {
+      console.log('[getRecommendation] User not found', userId);
       return res.status(400).json({ message: 'User not found' });
+    }
     const userEmbedding = userResponse.records[userId as string].values;
 
     const recommendations = await queryIndex(
@@ -124,10 +127,11 @@ export const getRecommendationViaInteraction = async (req: Request, res: Respons
     if (!userId) return res.status(400).json({ message: 'User ID is required' });
     const index = await getIndex(INDEX_NAMES.DEFAULT);
     if (!index) return res.status(400).json({ message: 'index not found' });
-
-    if (!checkIfUserExists(userId as string))
+    const userExist = await checkIfUserExists(userId as string);
+    if (!userExist) {
+      console.log('[getRecommendationViaInteraction] User not found', userId);
       return res.status(400).json({ message: 'User not found' });
-
+    }
     const userEmbedding = await fetchEmbeddings(
       INDEX_NAMES.DEFAULT,
       PineconeNamespace.USER,
@@ -162,10 +166,11 @@ export const getSimilarProductRecommendation = async (req: Request, res: Respons
     const index = await getIndex(INDEX_NAMES.DEFAULT);
     if (!index) return res.status(400).json({ message: 'index not found' });
 
-
-    if (!checkIfProductExists(productId as string))
+    const productExist = await checkIfProductExists(productId as string);
+    if (!productExist) {
+      console.log('[getSimilarProductRecommendation] Product not found', productId);
       return res.status(400).json({ message: 'Product not found' });
-    
+    }
     const productEmbedding = await fetchEmbeddings(
       INDEX_NAMES.DEFAULT,
       PineconeNamespace.PRODUCT,
